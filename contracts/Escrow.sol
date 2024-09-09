@@ -70,10 +70,6 @@ contract Escrow {
         uint256 _nftId,
         bool _passed
     ) public onlyInspector {
-        require(
-            msg.sender == inspector,
-            "only inspector can call this function"
-        );
         inspectionPassed[_nftId] = _passed;
     }
 
@@ -82,42 +78,40 @@ contract Escrow {
     function approveSell(uint256 _nftId) public {
         approval[_nftId][msg.sender] = true;
     }
-
-    //cansel sael (handle eanest deposit)
-    //if inspection status is not approved, then refund , otherwise send to seller
-
-    function cancelSale(uint256 _nftId) public {
-       if(inspectionPassed[_nftId]){
-           payable(buyer[_nftId]).transfer(address(this).balance);
-       } else {
-        payable (seller).transfer(address(this).balance);
-       }
-    }
-
-    receive() external payable {}
-    function getBalance() public view returns (uint256) {
-        return address(this).balance;
-    }
     //finalize sale
     //require inspection passed, lender, inspector and buyer approved
     //require sale to be authorized
     // require buyer to have deposited earnest
     //transfer nft to buyer
     //transfer funds to sellar
-    function finalizeSale(uint256 _nftId) public {
-        require(inspectionPassed[_nftId], "inspection not passed");
-        require(approval[_nftId][lender], "lender not approved");
-        require(approval[_nftId][seller], "seller not approved");
 
-        require(approval[_nftId][buyer[_nftId]], "buyer not approved");
-        require(
-            address(this).balance >= purchasePrice[_nftId],
-            "insufficient funds"
-        );
+    function finalizeSale(uint256 _nftId) public {
+        require(inspectionPassed[_nftId]);
+        require(approval[_nftId][lender]);
+        require(approval[_nftId][seller]);
+
+        require(approval[_nftId][buyer[_nftId]]);
+        require(address(this).balance >= purchasePrice[_nftId]);
+        isListed[_nftId] = false;
+
         (bool success, ) = payable(seller).call{value: address(this).balance}(
             ""
         );
-        require(success, "transfer failed");
+        require(success);
         IERC721(nftAddress).transferFrom(address(this), buyer[_nftId], _nftId);
+    }
+
+    //cansel sael (handle eanest deposit)
+    //if inspection status is not approved, then refund , otherwise send to seller
+    function cancelSale(uint256 _nftId) public {
+        if (inspectionPassed[_nftId]) {
+            payable(buyer[_nftId]).transfer(address(this).balance);
+        } else {
+            payable(seller).transfer(address(this).balance);
+        }
+    }
+    receive() external payable {}
+    function getBalance() public view returns (uint256) {
+        return address(this).balance;
     }
 }
